@@ -25,8 +25,8 @@ pipeline {
             DEPLOY = "${env.BRANCH_NAME == "python-dramed" || env.BRANCH_NAME == "master" ? "true" : "false"}"
             NAME = "${env.BRANCH_NAME == "python-dramed" ? "example" : "example-staging"}"
             VERSION = "${env.BUILD_ID}"
-            REGISTRY = 'eagunuworld/java-web-app'
-            imageName = "eagunuworld/java-web-app:${BUILD_ID}"
+            REGISTRY = 'eagunuworld/maven-web-application'
+            imageName = "eagunuworld/maven-web-application:${BUILD_ID}"
             REGISTRY_CREDENTIAL = 'eagunuworld_dockerhub_creds'
             deploymentName = "mss-prod-pod"
             conName = "mss-mvn-con"
