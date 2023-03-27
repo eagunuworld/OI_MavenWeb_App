@@ -1,279 +1,203 @@
-@Library('shared-mss') _
+@Library('mss-sharedlibrary') _
 
-pipeline{
-
-  agent{
-      label "node01"
+pipeline {
+  //agent any
+   agent{
+      label "nodemvn"
        }
 
-    options {
-      buildDiscarder logRotator(
-        artifactDaysToKeepStr: '1',
-        artifactNumToKeepStr: '2',
-        daysToKeepStr: '1',
-        numToKeepStr: '2')
-      timestamps()
-     }
+       options {
+         buildDiscarder logRotator( artifactDaysToKeepStr: '1', artifactNumToKeepStr: '3', daysToKeepStr: '1', numToKeepStr: '3')
+         timestamps()
+         //skipDefaultCheckout(true)
+        }
 
-  parameters {
-       choice choices: ['main',' master','prod-mall--mss', 'walmart-dev-mss', 'walmart-development-mss','warmart-custom-uat'], description: 'This is choice paramerized job', name: 'BranchName'
-       string defaultValue: 'Eghosa DevOps', description: 'please developer select the person\' name', name: 'personName'
-     }
+     parameters {
+          choice choices: ['main','mss-prod', 'mss-warmart-prod', 'mss-mvn-demo', 'slack_success_failed_demo', 'lab_mutation_Test', 'walmart-dev-mss', 'dependencyCheckTrivyOpenContest'], description: 'This is choice paramerized job', name: 'BranchName'
+          string defaultValue: 'Eghosa DevOps', description: 'please developer select the person\' name', name: 'personName'
+        }
 
-    tools{
-         maven 'demo-maven:3.8.6'
-          }
-    environment {
-              DEPLOY = "${env.BRANCH_NAME == "python-dramed" || env.BRANCH_NAME == "master" ? "true" : "false"}"
-              NAME = "${env.BRANCH_NAME == "python-dramed" ? "example" : "example-staging"}"
-              //def mvnHome =  tool name: "demo-maven:3.8.6", type: "maven"
-              //def mavenCMD = "${mavenHome}/usr/share/maven"
-              VERSION = "${env.BUILD_ID}"
-              BUILD_NUMBER = "${env.BUILD_NUMBER}"
-              BRANCH_NAME = "${env.BRANCH_NAME}"
-              NODE_NAME = "${env.NODE_NAME}"
-              REGISTRY = 'eagunuworld/mongodb-springboot-app'
-              REGISTRY_CREDENTIAL = 'eagunuworld_dockerhub_creds'
-            }
-
-    stages {
-
-      // stage('Example') {
-      //      if (env.BRANCH_NAME == 'python-dramed') {
-      //            echo 'I only execute on this environment $env.BRANCH_NAME'
-      //          } else {
-      //               echo 'I execute elsewhere'
-      //              }
-      //           }
-      stage('checking.. out codes ') {
-          steps {
-                git branch: "${params.BranchName}", credentialsId: 'democalculus_github_creds_ID', url: 'https://github.com/democalculus/maven-web-application.git'
-                 //git (credentialsId: 'democalculus_github_creds_ID', url: 'https://github.com/democalculus/springboot-dockerimage',branch: 'walmart-dev-mss')
-                   }
-                }
-
-      // stage(" Maven buld Artifacts Package"){
-      //             def mavenCMD = "${mavenHome}/bin/mvn"
-      //             sh "${mavenCMD} clean package"
-      //           }
-
-      //Run Junt Test cases & Do the Build
-
-    stage('RunUnitTestcases&Build'){
-              steps{
-                  parallel(
-                        RunUnitTestCases: {
-                             sh "mvn test"
-                          },
-
-                Build: {
-                       sh "mvn install -f maven-web-app/pom.xml"
-                         }
-                     )
-                  }
-            }
-
-  stage('checking for pom.xml') {
-              steps {
-                 sh 'ls -lart'
-              }
-            }
-
-     // stage('Build maven packages '){
-     //          steps{
-     //                sh "mvn install -f maven-web-app/pom.xml"
-     //                  }
-     //              }
-
-    stage ('Code Quality scan')  {
-                steps {
-                    withSonarQubeEnv('sonar_creds') {
-                      sh "mvn -f maven-web-app/pom.xml sonar:sonar"
-                       }
-                  }
-                }
-
-  stage ('Code coverage failed without build marked')  {
-                  steps {
-                    jacoco(
-                      deltaBranchCoverage: '80',
-                      deltaClassCoverage: '80',
-                      deltaComplexityCoverage: '80',
-                      deltaInstructionCoverage: '80',
-                      deltaLineCoverage: '80',
-                      deltaMethodCoverage: '80',
-                      maximumBranchCoverage: '80',
-                      maximumClassCoverage: '80',
-                      maximumComplexityCoverage: '80',
-                      maximumInstructionCoverage: '80',
-                      maximumLineCoverage: '80',
-                      maximumMethodCoverage: '80',
-                      minimumBranchCoverage: '80',
-                      minimumClassCoverage: '80',
-                      minimumComplexityCoverage: '80',
-                      minimumInstructionCoverage: '80',
-                      minimumLineCoverage: '80',
-                      minimumMethodCoverage: '80'
-                       )
-                  }
-              }
-
-    stage('nexusArtifactUploader') {
-            steps {
-              nexusArtifactUploader(
-              nexusVersion: 'nexus3',
-              protocol: 'http',
-              nexusUrl: '10.182.0.3:8081',
-              //groupId: 'myGroupId',
-              groupId: 'walmart-dev',
-              version: '1.0-SNAPSHOT',
-              repository: 'eagunu-mvn-snapshot-mss',
-              credentialsId: 'nexus_creds_id',
-              artifacts: [
-                  [artifactId: 'maven-web-app',
-                   classifier: '',
-                   file: 'maven-web-app/target/maven-web-app.war',
-                   type: 'war']
-                   ]
-                )
-             }
-          }
-
-  stage('checking for for target in maven-web-app') {
-        steps {
-                sh 'ls -lart maven-web-app/target'
-                  }
-              }
-
-  stage('Remove All Images Before Deployment') {
-          steps{
-            sshagent(['node01-jenkins-connection']) {
-                //sh "deploy adapters: [tomcat9(credentialsId: 'democalculus-Tom-box_creds_ID', path: '', url: 'http://34.125.92.205:8080/')], contextPath: 'maven-web-app', war: '**/*.war'"
-                sh "scp -o StrictHostKeyChecking=no maven-web-app/target/maven-web-app.war makutaworldmpm@10.182.0.6:/opt/apache-demo/webapps/maven-web-app.war"
-                  }
-                }
-            }
-
-
-  stage('Building Docker Images') {
-          steps {
-              sh "docker build -t ${REGISTRY}:${VERSION} ."
-                  }
-              }
-
-    stage('Push Docker Image To DockerHub') {
-          steps {
-                   withCredentials([string(credentialsId: 'eagunuworld_dockerhub_creds', variable: 'eagunuworld_dockerhub_creds')])  {
-                   sh "docker login -u eagunuworld -p ${eagunuworld_dockerhub_creds} "
-                   }
-                 sh 'docker push ${REGISTRY}:${VERSION}'
-                }
-             }
-    stage('Display All Files In Console') {
-            steps {
-               sh 'ls -lart'
-            }
-          }
-
- //  stage('Update docker-compose Tag'){
- //      steps{
- //          	script{
- //          				    sh '''final_tag=$(echo $VERSION | tr -d ' ')
- //          				     echo ${final_tag}test
- //          				     sed -i "s/BUILD_TAG/$final_tag/g"  docker-compose.yml
- //          				     '''
- //          				  }
- //          			 }
- //          		}
- //  stage('Display docker-compose content ') {
- //        steps {
- //            sh 'cat docker-compose.yml'
- //            }
- //        }
- //
- //  stage('Stop And Remove Running Container') {
- //      steps{
- //          sshagent(['ec2-user-password-credentials']) {
- //               sh 'docker ps -f name=springboot -q | xargs --no-run-if-empty docker container stop'
- //               sh 'docker container ls -a -fname=springboot  -q | xargs -r docker container rm'
- //               sh 'docker container ls '
- //                  }
- //                }
- //             }
- //
- //  stage('Remove All Images Before Deployment') {
- //        steps{
- //            sshagent(['ec2-user-password-credentials']) {
- //              sh 'docker rmi  $(docker images -q)'
- //                  }
- //               }
- //             }
- //
- // stage('Deploy On Prod') {
- //     steps{
- //       sshagent(['ec2-user-password-credentials']) {
- //            sh "scp -o StrictHostKeyChecking=no docker-compose.yml ec2-user@18.219.210.241:"
- //            sh "ssh -o StrictHostKeyChecking=no ec2-user@18.219.210.241 docker-compose up -d"
- //           }
- //         }
- //      }
- //
-  stage('Remove images from Agent Server') {
-        steps{
-            script {
-                sh 'docker rmi  $(docker images -q)'
-                  }
-              }
-            }
-
- //  stage('Remove ps from Agent Server') {
- //        steps {
- //              sh 'docker ps -f name=framed -q | xargs --no-run-if-empty docker container stop'
- //              sh 'docker container ls -a -fname=framed  -q | xargs -r docker container rm'
- //              sh 'docker container ls '
- //                }
- //            }
-
-   }// stages blocks closed
-   post {
-       aborted {
-           slackcodenotifications(currentBuild.result)
-            }
-     success {
-          slackcodenotifications(currentBuild.result)
-         }
-    failure  {
-        slackcodenotifications(currentBuild.result)
+  tools{
+      maven 'demo-maven:3.8.6'
       }
-   }
-}//pipeline closed
 
+ environment {
+            DEPLOY = "${env.BRANCH_NAME == "python-dramed" || env.BRANCH_NAME == "master" ? "true" : "false"}"
+            NAME = "${env.BRANCH_NAME == "python-dramed" ? "example" : "example-staging"}"
+            VERSION = "${env.BUILD_ID}"
+            REGISTRY = 'eagunuworld/java-web-app'
+            imageName = "eagunuworld/java-web-app:${BUILD_ID}"
+            REGISTRY_CREDENTIAL = 'eagunuworld_dockerhub_creds'
+            deploymentName = "mss-prod-pod"
+            conName = "mss-mvn-con"
+            svcName = "mss-mvn-svc"
+            svcPort = "30008"
+            jenkinsURL = "http://34.174.110.253"
+            mssNode = "http://34.174.110.253"
+          }
 
+  stages {
+    stage('Build Artifact - Maven') {
+      steps {
+         //cleanWs()
+        sh "mvn clean package -DskipTests=true"
+        archiveArtifacts 'target/*.war' 
+      }
+    }
 
-//slack notifications blocks
-// def slackNotifications(String buildStatus = 'STARTED') {
-//   // build status of null means successful
-//   buildStatus =  buildStatus ?: 'SUCCESS'
-//   //buildStatus = buildStatus ? "SUCCESS":"FAILURE"
-//
-//   // Default values
-//   def colorName = 'RED'
-//   def colorCode = '#FF0000'
-//   def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
-//   def summary = "${subject} (${env.BUILD_URL})"
-//
-//   // Override default values based on build status
-//   if (buildStatus == 'STARTED') {
-//     colorName = 'ORANGE'
-//     colorCode = '#FFA500'
-//   } else if (buildStatus == 'SUCCESS') {
-//     colorName = 'GREEN'
-//     colorCode = '#00FF00'
-//   } else {
-//     colorName = 'RED'
-//     colorCode = '#FF0000'
-//   }
-//
-//   // Send notifications
-//   slackSend (color: colorCode, message: summary, channel: "#walmart")
-// }
+    stage('SonarQube - SAST') {
+      steps {
+        withSonarQubeEnv('sonarQube') {
+          sh "mvn clean package sonar:sonar -Dsonar.projectKey=mss-warmart-prod -Dsonar.host.url=http://34.125.191.177:9000 -Dsonar.login=sqp_0da2b86135cf6f23388b6642a6aa68d64f8ac183"
+         }
+        // timeout(time: 2, unit: 'MINUTES') {
+        //   script {
+        //     waitForQualityGate abortPipeline: true
+        //   }
+        // }
+      }
+    }
+
+   stage('CodesVulnerabilityScanning') {    //(Pit mutation) is a plugin in jenkis and plugin was added in pom.xml line 68
+      steps {
+         parallel(
+               "PitMutationTestReport": {
+                    sh "kubectl get po -A"  //section 3 video
+                  },
+                  "DependencyCheckReport": {
+                      sh "ls -lart"    //OWASP Dependency check plugin is required via jenkins
+                   },
+                 "EnvironmentVariables": {
+                  sh "printenv"
+               }
+             )
+         }
+      }
+
+  stage('ScanningBasedPushImage') {  
+      steps {
+         parallel(
+               "ScanningAppImage": {
+                 withCredentials([string(credentialsId: 'eagunuworld_dockerhub_creds', variable: 'eagunuworld_dockerhub_creds')])  {
+                   sh "docker login -u eagunuworld -p ${eagunuworld_dockerhub_creds} "
+                   sh 'docker build -t ${REGISTRY}:${VERSION} .'
+                }
+                sh 'docker push ${REGISTRY}:${VERSION}' 
+               },
+                "BasedImage": {
+                sh "sudo rm -rf trivy"
+                }
+             )
+         }
+      }
+
+  //  stage('Push Docker Image To DockerHub') {
+  //       steps {
+  //           withCredentials([string(credentialsId: 'eagunuworld_dockerhub_creds', variable: 'eagunuworld_dockerhub_creds')])  {
+  //             sh "docker login -u eagunuworld -p ${eagunuworld_dockerhub_creds} "
+  //             sh 'docker build -t ${REGISTRY}:${VERSION} .'
+  //               }
+  //               sh 'docker push ${REGISTRY}:${VERSION}'
+  //           }
+  //         }
+
+    stage('ManifestK8SVulnerabilitYScanning') {  
+      steps {
+         parallel(
+              //  "ScanningAppImage": {
+              //       sh "bash trivy-k8s-scan.sh" 
+              //     },
+              //     "ScanningDeploymentFile": {
+              //       sh 'docker run --rm -v $(pwd):/project openpolicyagent/conftest test --policy opa-k8s-security.rego mss-north-west-deploy.yml'
+              //      },
+              //     //  "BasedImage": {
+              //     //   sh "docker run --rm -v $(pwd):/project openpolicyagent/conftest test --policy opa-docker-security.rego Dockerfile"
+              //     //  },
+              //    "kubesec Scannning": {
+              //     sh 'bash kubesec-scan.sh'
+              //   },
+                "Master": {
+               sh "bash cis-benchmark-master.sh"
+              },
+              "Etcd": {
+               sh "bash cis-benchmark-etcd.sh"
+             },
+             "Kubelet": {
+              sh "bash cis-benchMark-kubelet.sh"
+             }
+           )
+         }
+      }
+
+    // stage('comSecretMongodb') {
+    //   steps {
+    //     parallel(
+    //       "configMap": {
+    //           sh "kubectl apply -f mss-north-west-cm.yml"
+    //         },
+    //       "creatNS": {
+    //           sh "kubectl apply -f  mss-north-ns.yml"
+    //       },
+    //       "createSecret": {
+    //           sh "kubectl apply -f mss-north-west-secret.yml"
+    //       }
+    //     )
+    //   }
+    // }
+
+    stage('PleaseApprove West-Prod?') {
+      steps {
+        timeout(time: 2, unit: 'DAYS') {
+          input 'Do you want to Approve  West Production Environment/Namespace Deployment?'
+        }
+      }
+    }
+
+ stage('west-prod') {
+      steps {
+        parallel(
+          "Deployment": {
+              sh "sed -i 's#replace#${REGISTRY}:${VERSION}#g' mss-west-deploy.yml"
+              sh "kubectl apply -f mss-west-deploy.yml"
+            },
+          "create-svcs": {
+            sh "kubectl apply -f mss-north-svc.yml"
+          }
+        )
+      }
+    }
+
+   stage('RemoveResources') {  
+      steps {
+         parallel(
+               "KillProcesses": {
+                    sh "printenv" 
+                  },
+                 "RemoveDockerImages": {
+                  sh 'docker rmi  $(docker images -q)'
+                },
+                 "Display mss-warmart deploy": {
+               sh 'kubectl -n mss-prod get svc,po'
+              }
+             )
+         }
+      }
+
+  } // pipeline stages end here 
+   post {
+      //   always {
+      //   junit 'target/surefire-reports/*.xml'
+      //   jacoco execPattern: 'target/jacoco.exec'
+      //   pitmutation mutationStatsFile: '**/target/pit-reports/**/mutations.xml'
+      //   dependencyCheckPublisher pattern: 'target/dependency-check-report.xml'
+      //  }
+      success {
+      script {
+        /* Use slackNotifier.groovy from shared library and provide current build result as parameter */  
+        env.failedStage = "none"
+        env.emoji = ":white_check_mark: :tada: :thumbsup_all:"
+        slackcodenotifications currentBuild.result
+      }
+    }
+  }
+}
