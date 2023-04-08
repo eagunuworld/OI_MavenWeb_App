@@ -48,7 +48,7 @@ pipeline {
     stage('SonarQube - SAST') {
       steps {
         withSonarQubeEnv('sonarQube') {
-          sh "mvn clean package sonar:sonar -Dsonar.projectKey=mss-warmart-prod -Dsonar.host.url=http://34.125.191.177:9000 -Dsonar.login=sqp_0da2b86135cf6f23388b6642a6aa68d64f8ac183"
+          sh "mvn clean package sonar:sonar -Dsonar.projectKey=gradlebuild_app -Dsonar.host.url=http://34.125.41.155:9000 -Dsonar.login=sqp_ab25307f13a83a6371a64bb4758d41336d41ab33"
          }
         // timeout(time: 2, unit: 'MINUTES') {
         //   script {
